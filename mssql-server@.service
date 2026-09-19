@@ -1,0 +1,40 @@
+[Unit]
+Description=Microsoft SQL Server Database Engine (instance %i)
+Documentation=https://learn.microsoft.com/en-us/sql/linux/
+After=network.target auditd.service
+ConditionPathIsDirectory=/var/opt/mssql-instances/%i
+
+[Service]
+# ---------------------------------------------------------------------------
+# The whole trick: /var/opt/mssql is a hard-coded root for everything inside
+# the engine (mssql.conf, data/, log/, secrets/, .system/, security/). Give the
+# unit a private mount namespace in which the instance's own directory appears
+# at /var/opt/mssql, and the engine can no longer see the base instance at all.
+# ---------------------------------------------------------------------------
+BindPaths=/var/opt/mssql-instances/%i:/var/opt/mssql
+
+ExecStart=/opt/mssql/bin/sqlservr
+User=mssql
+WorkingDirectory=/var/opt/mssql
+
+# Kill root process
+KillMode=process
+
+# Wait up to 30 minutes for service to start/stop
+TimeoutSec=30min
+
+# Remove process, file, thread limits
+LimitNPROC=infinity
+LimitNOFILE=infinity
+TasksMax=infinity
+UMask=007
+
+# Restart on non-successful exits.
+Restart=on-failure
+
+# Don't restart if we've restarted more than 3 times in 2 minutes.
+StartLimitInterval=120
+StartLimitBurst=3
+
+[Install]
+WantedBy=multi-user.target
